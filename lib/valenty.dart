@@ -151,7 +151,114 @@ class Valenty {
       ),
     );
   }
+
+  // --- Navigation Methods ---
+
+  static dynamic _arguments;
+  /// Global arguments passed to routes.
+  static dynamic get arguments => _arguments;
+
+  /// Navigate to a new page.
+  static Future<T?>? to<T>(Widget page, {
+    bool? opaque,
+    Transition? transition,
+    Curve? curve,
+    Duration? duration,
+    int? id,
+    String? routeName,
+    bool fullscreenDialog = false,
+    dynamic arguments,
+    bool preventDuplicates = true,
+    double? popGesture,
+  }) {
+    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    
+    _arguments = arguments;
+    
+    // Simplistic implementation using MaterialPageRoute for now.
+    // Enhanced functionality (transitions) would require custom Route implementation.
+    return Navigator.of(context!).push<T>(
+      MaterialPageRoute(
+        builder: (_) => page,
+        settings: RouteSettings(name: routeName, arguments: arguments),
+        fullscreenDialog: fullscreenDialog,
+      ),
+    );
+  }
+
+  /// Navigate to a named route.
+  static Future<T?>? toNamed<T>(String page, {dynamic arguments}) {
+    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    _arguments = arguments;
+    return Navigator.of(context!).pushNamed<T>(page, arguments: arguments);
+  }
+
+  /// Replace the current page.
+  static Future<T?>? off<T>(Widget page, {
+    String? routeName,
+    dynamic arguments,
+    bool fullscreenDialog = false,
+  }) {
+    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    _arguments = arguments;
+    return Navigator.of(context!).pushReplacement<T, T>(
+      MaterialPageRoute(
+        builder: (_) => page,
+        settings: RouteSettings(name: routeName, arguments: arguments),
+        fullscreenDialog: fullscreenDialog,
+      ),
+    );
+  }
+  
+  /// Replace the current page with named route.
+  static Future<T?>? offNamed<T>(String page, {dynamic arguments}) {
+    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    _arguments = arguments;
+    return Navigator.of(context!).pushReplacementNamed<T, T>(page, arguments: arguments);
+  }
+
+  /// Remove all previous pages and go to new page.
+  static Future<T?>? offAll<T>(Widget page, {
+    String? routeName,
+    dynamic arguments,
+    bool fullscreenDialog = false,
+    RoutePredicate? predicate,
+  }) {
+    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    _arguments = arguments;
+    return Navigator.of(context!).pushAndRemoveUntil<T>(
+      MaterialPageRoute(
+        builder: (_) => page,
+        settings: RouteSettings(name: routeName, arguments: arguments),
+        fullscreenDialog: fullscreenDialog,
+      ),
+      predicate ?? (_) => false,
+    );
+  }
+  
+  /// Remove all previous pages and go to named route.
+  static Future<T?>? offAllNamed<T>(String page, {
+    dynamic arguments,
+    RoutePredicate? predicate,
+  }) {
+    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    _arguments = arguments;
+    return Navigator.of(context!).pushNamedAndRemoveUntil<T>(
+      page,
+      predicate ?? (_) => false,
+      arguments: arguments,
+    );
+  }
+
+  /// Pop the current page.
+  static void back<T>([T? result]) {
+    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    return Navigator.of(context!).pop<T>(result);
+  }
+
 }
+
+enum Transition { fade, rightToLeft, leftToRight, upToDown, downToUp, scale, rotate, size, rightToLeftWithFade, leftToRightWithFade }
 
 enum SnackPosition { TOP, BOTTOM }
 
