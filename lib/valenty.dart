@@ -20,13 +20,14 @@ class Valenty {
   final Map<String, dynamic> _dependencies = {};
 
   // --- Context-less Navigation & UI ---
-  
+
   /// Global Key for Navigator.
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-  
+
   /// Global Key for ScaffoldMessenger.
-  final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
-  
+  final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+
   /// Helper to get current context.
   static BuildContext? get context => _instance.navigatorKey.currentContext;
 
@@ -39,7 +40,9 @@ class Valenty {
   static S put<S>(S dependency, {String? tag}) {
     final String key = _getKey(S, tag);
     if (_instance._dependencies.containsKey(key)) {
-      debugPrint('Valenty: $key already registered. Returning existing instance.');
+      debugPrint(
+        'Valenty: $key already registered. Returning existing instance.',
+      );
       return _instance._dependencies[key] as S;
     }
 
@@ -58,10 +61,11 @@ class Valenty {
   /// Throws an error if the dependency is not found.
   static S find<S>({String? tag}) {
     final String key = _getKey(S, tag);
-    if (!_instance._dependencies.containsKey(key)) {
+    final dep = _instance._dependencies[key];
+    if (dep == null) {
       throw 'Valenty: $key not found. Make sure to call Valenty.put() first.';
     }
-    return _instance._dependencies[key] as S;
+    return dep as S;
   }
 
   /// Deletes a registered dependency.
@@ -71,12 +75,16 @@ class Valenty {
   /// Returns true if the dependency was found and deleted.
   static bool delete<S>({String? tag}) {
     final String key = _getKey(S, tag);
+    return _deleteByKey(key);
+  }
+
+  /// Internal method to delete by key.
+  static bool _deleteByKey(String key) {
     if (_instance._dependencies.containsKey(key)) {
-      final dependency = _instance._dependencies[key];
+      final dependency = _instance._dependencies.remove(key);
       if (dependency is ValentyController) {
         dependency.onDispose();
       }
-      _instance._dependencies.remove(key);
       debugPrint('Valenty: Deleted $key');
       return true;
     }
@@ -91,7 +99,9 @@ class Valenty {
 
   /// Shows a dialog.
   static Future<T?> dialog<T>(Widget widget, {bool barrierDismissible = true}) {
-    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    if (context == null) {
+      throw 'Valenty: Context is null. Did you use ValentyApp?';
+    }
     return showDialog<T>(
       context: context!,
       barrierDismissible: barrierDismissible,
@@ -100,14 +110,17 @@ class Valenty {
   }
 
   /// Shows a bottom sheet.
-  static Future<T?> bottomSheet<T>(Widget widget, {
+  static Future<T?> bottomSheet<T>(
+    Widget widget, {
     Color? backgroundColor,
     double? elevation,
     ShapeBorder? shape,
     Clip? clipBehavior,
     bool isScrollControlled = false,
   }) {
-    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    if (context == null) {
+      throw 'Valenty: Context is null. Did you use ValentyApp?';
+    }
     return showModalBottomSheet<T>(
       context: context!,
       builder: (_) => widget,
@@ -126,27 +139,38 @@ class Valenty {
     Color? backgroundColor,
     Color? colorText,
     Duration duration = const Duration(seconds: 3),
-    SnackPosition snackPosition = SnackPosition.BOTTOM,
+    SnackPosition snackPosition = SnackPosition.bottom,
   }) {
     final messenger = _instance.scaffoldMessengerKey.currentState;
-    if (messenger == null) throw 'Valenty: ScaffoldMessengerState is null. Did you use ValentyApp?';
-    
+    if (messenger == null) {
+      throw 'Valenty: ScaffoldMessengerState is null. Did you use ValentyApp?';
+    }
+
     return messenger.showSnackBar(
       SnackBar(
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: colorText)),
+            Text(
+              title,
+              style: TextStyle(fontWeight: FontWeight.bold, color: colorText),
+            ),
             SizedBox(height: 4),
             Text(message, style: TextStyle(color: colorText)),
           ],
         ),
         backgroundColor: backgroundColor,
         duration: duration,
-        behavior: snackPosition == SnackPosition.TOP ? SnackBarBehavior.floating : SnackBarBehavior.fixed,
-        margin: snackPosition == SnackPosition.TOP 
-            ? EdgeInsets.only(bottom: MediaQuery.of(context!).size.height - 150, left: 10, right: 10) 
+        behavior: snackPosition == SnackPosition.top
+            ? SnackBarBehavior.floating
+            : SnackBarBehavior.fixed,
+        margin: snackPosition == SnackPosition.top
+            ? EdgeInsets.only(
+                bottom: MediaQuery.of(context!).size.height - 150,
+                left: 10,
+                right: 10,
+              )
             : null,
       ),
     );
@@ -155,11 +179,13 @@ class Valenty {
   // --- Navigation Methods ---
 
   static dynamic _arguments;
+
   /// Global arguments passed to routes.
   static dynamic get arguments => _arguments;
 
   /// Navigate to a new page.
-  static Future<T?>? to<T>(Widget page, {
+  static Future<T?>? to<T>(
+    Widget page, {
     bool? opaque,
     Transition? transition,
     Curve? curve,
@@ -171,10 +197,12 @@ class Valenty {
     bool preventDuplicates = true,
     double? popGesture,
   }) {
-    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
-    
+    if (context == null) {
+      throw 'Valenty: Context is null. Did you use ValentyApp?';
+    }
+
     _arguments = arguments;
-    
+
     // Simplistic implementation using MaterialPageRoute for now.
     // Enhanced functionality (transitions) would require custom Route implementation.
     return Navigator.of(context!).push<T>(
@@ -188,18 +216,23 @@ class Valenty {
 
   /// Navigate to a named route.
   static Future<T?>? toNamed<T>(String page, {dynamic arguments}) {
-    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    if (context == null) {
+      throw 'Valenty: Context is null. Did you use ValentyApp?';
+    }
     _arguments = arguments;
     return Navigator.of(context!).pushNamed<T>(page, arguments: arguments);
   }
 
   /// Replace the current page.
-  static Future<T?>? off<T>(Widget page, {
+  static Future<T?>? off<T>(
+    Widget page, {
     String? routeName,
     dynamic arguments,
     bool fullscreenDialog = false,
   }) {
-    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    if (context == null) {
+      throw 'Valenty: Context is null. Did you use ValentyApp?';
+    }
     _arguments = arguments;
     return Navigator.of(context!).pushReplacement<T, T>(
       MaterialPageRoute(
@@ -209,22 +242,29 @@ class Valenty {
       ),
     );
   }
-  
+
   /// Replace the current page with named route.
   static Future<T?>? offNamed<T>(String page, {dynamic arguments}) {
-    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    if (context == null) {
+      throw 'Valenty: Context is null. Did you use ValentyApp?';
+    }
     _arguments = arguments;
-    return Navigator.of(context!).pushReplacementNamed<T, T>(page, arguments: arguments);
+    return Navigator.of(
+      context!,
+    ).pushReplacementNamed<T, T>(page, arguments: arguments);
   }
 
   /// Remove all previous pages and go to new page.
-  static Future<T?>? offAll<T>(Widget page, {
+  static Future<T?>? offAll<T>(
+    Widget page, {
     String? routeName,
     dynamic arguments,
     bool fullscreenDialog = false,
     RoutePredicate? predicate,
   }) {
-    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    if (context == null) {
+      throw 'Valenty: Context is null. Did you use ValentyApp?';
+    }
     _arguments = arguments;
     return Navigator.of(context!).pushAndRemoveUntil<T>(
       MaterialPageRoute(
@@ -235,13 +275,16 @@ class Valenty {
       predicate ?? (_) => false,
     );
   }
-  
+
   /// Remove all previous pages and go to named route.
-  static Future<T?>? offAllNamed<T>(String page, {
+  static Future<T?>? offAllNamed<T>(
+    String page, {
     dynamic arguments,
     RoutePredicate? predicate,
   }) {
-    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    if (context == null) {
+      throw 'Valenty: Context is null. Did you use ValentyApp?';
+    }
     _arguments = arguments;
     return Navigator.of(context!).pushNamedAndRemoveUntil<T>(
       page,
@@ -252,15 +295,27 @@ class Valenty {
 
   /// Pop the current page.
   static void back<T>([T? result]) {
-    if (context == null) throw 'Valenty: Context is null. Did you use ValentyApp?';
+    if (context == null) {
+      throw 'Valenty: Context is null. Did you use ValentyApp?';
+    }
     return Navigator.of(context!).pop<T>(result);
   }
-
 }
 
-enum Transition { fade, rightToLeft, leftToRight, upToDown, downToUp, scale, rotate, size, rightToLeftWithFade, leftToRightWithFade }
+enum Transition {
+  fade,
+  rightToLeft,
+  leftToRight,
+  upToDown,
+  downToUp,
+  scale,
+  rotate,
+  size,
+  rightToLeftWithFade,
+  leftToRightWithFade,
+}
 
-enum SnackPosition { TOP, BOTTOM }
+enum SnackPosition { top, bottom }
 
 /// Mixin to handle automatic disposal of ValentyControllers in StatefulWidget.
 mixin ValentyStateMixin<T extends StatefulWidget> on State<T> {
@@ -275,10 +330,9 @@ mixin ValentyStateMixin<T extends StatefulWidget> on State<T> {
 
   @override
   void dispose() {
-    // Note: This cleanup implementation is limited because Valenty.delete<S> requires generic S.
-    // For proper cleanup of dynamic types, we would need to store the delete function closure or refactor Valenty
-    // to allow deletion by string key (which is internal).
-    // For this demonstration, we are relying on explicit deletion or using ValentyProvider.
+    for (final key in _tags) {
+      Valenty._deleteByKey(key);
+    }
     super.dispose();
   }
 }
@@ -291,17 +345,18 @@ class ValentyProvider<T extends ValentyController> extends StatefulWidget {
   final String? tag;
 
   const ValentyProvider({
-    Key? key,
+    super.key,
     required this.create,
     required this.builder,
     this.tag,
-  }) : super(key: key);
+  });
 
   @override
-  _ValentyProviderState<T> createState() => _ValentyProviderState<T>();
+  ValentyProviderState<T> createState() => ValentyProviderState<T>();
 }
 
-class _ValentyProviderState<T extends ValentyController> extends State<ValentyProvider<T>> {
+class ValentyProviderState<T extends ValentyController>
+    extends State<ValentyProvider<T>> {
   late T controller;
 
   @override
@@ -330,13 +385,8 @@ class _ValentyObserver {
   factory _ValentyObserver() => _instance;
   _ValentyObserver._internal();
 
-  RxInterface? _current;
-
-  /// Sets the current observer (Obx's logic).
-  void set observer(RxInterface? obs) => _current = obs;
-  
-  /// Gets the current observer.
-  RxInterface? get observer => _current;
+  /// The current observer (Obx's logic).
+  RxInterface? observer;
 }
 
 /// Interface for Rx classes and internal observers.
@@ -347,16 +397,15 @@ abstract class RxInterface {
 /// A reactive variable base class.
 class Rx<T> implements RxInterface {
   T _value;
-  final List<RxInterface> _listeners = [];
+  final Set<RxInterface> _listeners = {};
 
   Rx(this._value);
 
   T get value {
     // If there is a current observer (Obx), register it as a listener.
-    if (_ValentyObserver().observer != null) {
-      if (!_listeners.contains(_ValentyObserver().observer)) {
-        _listeners.add(_ValentyObserver().observer!);
-      }
+    final observer = _ValentyObserver().observer;
+    if (observer != null) {
+      _listeners.add(observer);
     }
     return _value;
   }
@@ -367,7 +416,7 @@ class Rx<T> implements RxInterface {
       notify();
     }
   }
-  
+
   @override
   void notify() {
     // Notify all listeners (Obx widgets).
@@ -375,7 +424,7 @@ class Rx<T> implements RxInterface {
       listener.notify();
     }
   }
-  
+
   /// Bind the stream to this Rx.
   void bindStream(Stream<T> stream) {
     stream.listen((val) => value = val);
@@ -389,12 +438,15 @@ class Rx<T> implements RxInterface {
 extension RxIntExtension on int {
   Rx<int> get obs => Rx<int>(this);
 }
+
 extension RxStringExtension on String {
   Rx<String> get obs => Rx<String>(this);
 }
+
 extension RxDoubleExtension on double {
   Rx<double> get obs => Rx<double>(this);
 }
+
 extension RxBoolExtension on bool {
   Rx<bool> get obs => Rx<bool>(this);
 }
@@ -403,16 +455,16 @@ extension RxBoolExtension on bool {
 class Obx extends StatefulWidget {
   final Widget Function() builder;
 
-  const Obx(this.builder, {Key? key}) : super(key: key);
+  const Obx(this.builder, {super.key});
 
   @override
-  _ObxState createState() => _ObxState();
+  ObxState createState() => ObxState();
 }
 
-class _ObxState extends State<Obx> implements RxInterface {
+class ObxState extends State<Obx> implements RxInterface {
   final _observer = _ValentyObserver();
   RxInterface? _previousObserver;
-  
+
   void _update() {
     if (mounted) {
       setState(() {});
@@ -428,9 +480,9 @@ class _ObxState extends State<Obx> implements RxInterface {
   Widget build(BuildContext context) {
     _previousObserver = _observer.observer;
     _observer.observer = this;
-    
+
     final builtWidget = widget.builder();
-    
+
     _observer.observer = _previousObserver;
     return builtWidget;
   }
@@ -454,9 +506,9 @@ class ValentyApp extends StatelessWidget {
   final bool debugShowCheckedModeBanner;
 
   // Add more properties as needed to match MaterialApp
-  
+
   const ValentyApp({
-    Key? key,
+    super.key,
     this.navigatorKey,
     this.scaffoldMessengerKey,
     this.home,
@@ -469,14 +521,15 @@ class ValentyApp extends StatelessWidget {
     this.darkTheme,
     this.themeMode,
     this.debugShowCheckedModeBanner = true,
-  }) : super(key: key);
-  
+  });
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       key: key,
       navigatorKey: navigatorKey ?? Valenty().navigatorKey,
-      scaffoldMessengerKey: scaffoldMessengerKey ?? Valenty().scaffoldMessengerKey,
+      scaffoldMessengerKey:
+          scaffoldMessengerKey ?? Valenty().scaffoldMessengerKey,
       home: home,
       routes: routes,
       initialRoute: initialRoute,
