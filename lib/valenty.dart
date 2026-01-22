@@ -10,6 +10,70 @@ abstract class ValentyController {
   void onDispose() {}
 }
 
+/// A navigator observer that tracks routes and their associated dependencies.
+class ValentyRouteObserver extends NavigatorObserver {
+  static final ValentyRouteObserver _instance =
+      ValentyRouteObserver._internal();
+  factory ValentyRouteObserver() => _instance;
+  ValentyRouteObserver._internal();
+
+  final Map<Route, List<String>> _routes = {};
+  Route? _currentRoute;
+
+  void register(String key) {
+    if (_currentRoute != null) {
+      if (!_routes.containsKey(_currentRoute)) {
+        _routes[_currentRoute!] = [];
+      }
+      _routes[_currentRoute!]!.add(key);
+    }
+  }
+
+  @override
+  void didPush(Route route, Route? previousRoute) {
+    super.didPush(route, previousRoute);
+    _currentRoute = route;
+  }
+
+  @override
+  void didPop(Route route, Route? previousRoute) {
+    super.didPop(route, previousRoute);
+    _removeDependencies(route);
+    _currentRoute = previousRoute;
+  }
+
+  @override
+  void didRemove(Route route, Route? previousRoute) {
+    super.didRemove(route, previousRoute);
+    _removeDependencies(route);
+    // If we removed the current route (unlikely in normal flow but possible)
+    if (route == _currentRoute) {
+      _currentRoute = previousRoute;
+    }
+  }
+
+  @override
+  void didReplace({Route? newRoute, Route? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    if (oldRoute != null) {
+      _removeDependencies(oldRoute);
+    }
+    if (newRoute != null) {
+      _currentRoute = newRoute;
+    }
+  }
+
+  void _removeDependencies(Route route) {
+    if (_routes.containsKey(route)) {
+      final keys = _routes[route]!;
+      for (final key in keys) {
+        Valenty._deleteByKey(key);
+      }
+      _routes.remove(route);
+    }
+  }
+}
+
 /// A simple dependency injection and state management container.
 class Valenty {
   // Singleton instance
@@ -18,6 +82,9 @@ class Valenty {
   Valenty._internal();
 
   final Map<String, dynamic> _dependencies = {};
+
+  /// The route observer for tracking lifecycle.
+  static final ValentyRouteObserver observer = ValentyRouteObserver();
 
   // --- Context-less Navigation & UI ---
 
@@ -35,9 +102,10 @@ class Valenty {
   ///
   /// [dependency] is the instance to be registered.
   /// [tag] uses a unique tag to register multiple instances of the same type.
+  /// [permanent] if true, the dependency won't be auto-disposed when the current route pops.
   ///
   /// Returns the registered dependency.
-  static S put<S>(S dependency, {String? tag}) {
+  static S put<S>(S dependency, {String? tag, bool permanent = false}) {
     final String key = _getKey(S, tag);
     if (_instance._dependencies.containsKey(key)) {
       debugPrint(
@@ -47,6 +115,12 @@ class Valenty {
     }
 
     _instance._dependencies[key] = dependency;
+
+    // Auto-bind to current route if not permanent
+    if (!permanent) {
+      observer.register(key);
+    }
+
     if (dependency is ValentyController) {
       dependency.onInit();
     }
@@ -134,10 +208,8 @@ class Valenty {
 
   /// Shows a snackbar.
   static ScaffoldFeatureController<SnackBar, SnackBarClosedReason> snackbar(
-    String title,
-    String message, {
+    Widget content, {
     Color? backgroundColor,
-    Color? colorText,
     Duration duration = const Duration(seconds: 3),
     SnackPosition snackPosition = SnackPosition.bottom,
   }) {
@@ -148,18 +220,7 @@ class Valenty {
 
     return messenger.showSnackBar(
       SnackBar(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(fontWeight: FontWeight.bold, color: colorText),
-            ),
-            SizedBox(height: 4),
-            Text(message, style: TextStyle(color: colorText)),
-          ],
-        ),
+        content: content,
         backgroundColor: backgroundColor,
         duration: duration,
         behavior: snackPosition == SnackPosition.top
@@ -184,8 +245,9 @@ class Valenty {
   static dynamic get arguments => _arguments;
 
   /// Navigate to a new page.
+  /// [page] can be a [Widget] or a [Widget Function()] (Builder).
   static Future<T?>? to<T>(
-    Widget page, {
+    dynamic page, {
     bool? opaque,
     Transition? transition,
     Curve? curve,
@@ -207,7 +269,7 @@ class Valenty {
     // Enhanced functionality (transitions) would require custom Route implementation.
     return Navigator.of(context!).push<T>(
       MaterialPageRoute(
-        builder: (_) => page,
+        builder: (_) => (page is Function) ? page() : page,
         settings: RouteSettings(name: routeName, arguments: arguments),
         fullscreenDialog: fullscreenDialog,
       ),
@@ -224,8 +286,9 @@ class Valenty {
   }
 
   /// Replace the current page.
+  /// [page] can be a [Widget] or a [Widget Function()] (Builder).
   static Future<T?>? off<T>(
-    Widget page, {
+    dynamic page, {
     String? routeName,
     dynamic arguments,
     bool fullscreenDialog = false,
@@ -236,7 +299,7 @@ class Valenty {
     _arguments = arguments;
     return Navigator.of(context!).pushReplacement<T, T>(
       MaterialPageRoute(
-        builder: (_) => page,
+        builder: (_) => (page is Function) ? page() : page,
         settings: RouteSettings(name: routeName, arguments: arguments),
         fullscreenDialog: fullscreenDialog,
       ),
@@ -255,8 +318,9 @@ class Valenty {
   }
 
   /// Remove all previous pages and go to new page.
+  /// [page] can be a [Widget] or a [Widget Function()] (Builder).
   static Future<T?>? offAll<T>(
-    Widget page, {
+    dynamic page, {
     String? routeName,
     dynamic arguments,
     bool fullscreenDialog = false,
@@ -268,7 +332,7 @@ class Valenty {
     _arguments = arguments;
     return Navigator.of(context!).pushAndRemoveUntil<T>(
       MaterialPageRoute(
-        builder: (_) => page,
+        builder: (_) => (page is Function) ? page() : page,
         settings: RouteSettings(name: routeName, arguments: arguments),
         fullscreenDialog: fullscreenDialog,
       ),
@@ -526,7 +590,10 @@ class ValentyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      key: key,
+      navigatorObservers: [
+        Valenty.observer,
+        // Add existing logic to allow users to add own observers if we expanded this widget
+      ],
       navigatorKey: navigatorKey ?? Valenty().navigatorKey,
       scaffoldMessengerKey:
           scaffoldMessengerKey ?? Valenty().scaffoldMessengerKey,

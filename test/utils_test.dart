@@ -38,12 +38,11 @@ void main() {
     testWidgets('Valenty.snackbar shows snackbar', (WidgetTester tester) async {
       await tester.pumpWidget(ValentyApp(home: Scaffold(body: Container())));
 
-      Valenty.snackbar('Title', 'Message');
+      Valenty.snackbar(Text('Snackbar Content'));
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Title'), findsOneWidget);
-      expect(find.text('Message'), findsOneWidget);
+      expect(find.text('Snackbar Content'), findsOneWidget);
     });
   });
 }
