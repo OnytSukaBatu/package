@@ -84,6 +84,37 @@ void main() {
       expect(buildCount, 2);
       expect(find.text('Bob: 30'), findsOneWidget);
     });
+
+    test('Rx types are correct', () {
+      expect(10.obs, isA<RxInt>());
+      expect('str'.obs, isA<RxString>());
+      expect(10.5.obs, isA<RxDouble>());
+      expect(true.obs, isA<RxBool>());
+    });
+
+    testWidgets('RxInt notifies on change', (WidgetTester tester) async {
+      final count = 0.obs;
+      int buildCount = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Obx(() {
+            buildCount++;
+            return Text('Count: ${count.value}');
+          }),
+        ),
+      );
+
+      expect(buildCount, 1);
+      expect(find.text('Count: 0'), findsOneWidget);
+
+      count.value++;
+
+      await tester.pump();
+
+      expect(buildCount, 2);
+      expect(find.text('Count: 1'), findsOneWidget);
+    });
   });
 }
 

@@ -656,21 +656,58 @@ class RxMap<K, V> extends MapMixin<K, V> implements RxInterface {
   }
 }
 
+/// Specialized Rx types
+class RxInt extends Rx<int> {
+  RxInt(super.value);
+
+  RxInt operator +(int other) {
+    value = value + other;
+    return this;
+  }
+
+  RxInt operator -(int other) {
+    value = value - other;
+    return this;
+  }
+}
+
+class RxDouble extends Rx<double> {
+  RxDouble(super.value);
+
+  RxDouble operator +(double other) {
+    value = value + other;
+    return this;
+  }
+
+  RxDouble operator -(double other) {
+    value = value - other;
+    return this;
+  }
+}
+
+class RxString extends Rx<String> {
+  RxString(super.value);
+}
+
+class RxBool extends Rx<bool> {
+  RxBool(super.value);
+}
+
 /// Extension for easy Rx creation.
 extension RxIntExtension on int {
-  Rx<int> get obs => Rx<int>(this);
+  RxInt get obs => RxInt(this);
 }
 
 extension RxStringExtension on String {
-  Rx<String> get obs => Rx<String>(this);
+  RxString get obs => RxString(this);
 }
 
 extension RxDoubleExtension on double {
-  Rx<double> get obs => Rx<double>(this);
+  RxDouble get obs => RxDouble(this);
 }
 
 extension RxBoolExtension on bool {
-  Rx<bool> get obs => Rx<bool>(this);
+  RxBool get obs => RxBool(this);
 }
 
 extension RxListExtension<E> on List<E> {
