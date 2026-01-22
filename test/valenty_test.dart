@@ -57,7 +57,7 @@ void main() {
       Valenty.put(c1);
 
       final c2 = TestController();
-      final registered = Valenty.put(c2); // Should return c1
+      final registered = Valenty.put(c2);
 
       expect(registered, c1);
       expect(registered, isNot(c2));

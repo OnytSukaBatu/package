@@ -1,5 +1,38 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:collection';
+import 'dart:developer' as dev;
+
+void log(
+  dynamic log, {
+  Color? color,
+  String? name,
+  bool? bold,
+  bool? faint,
+  bool? italic,
+  bool? underline,
+}) {
+  String style = '';
+  name ??= 'log';
+
+  if (log is! String) log = log.toString();
+
+  if (color != null) {
+    int red = (color.r * 255.0).round() & 0xff;
+    int green = (color.g * 255.0).round() & 0xff;
+    int blue = (color.b * 255.0).round() & 0xff;
+
+    log = '\x1B[38;2;$red;$green;$blue;m$log';
+  }
+
+  if (bold != null && bold) style = '1;$style';
+  if (faint != null && faint) style = '2;$style';
+  if (italic != null && italic) style = '3;$style';
+  if (underline != null && underline) style = '4;$style';
+  if (style.isNotEmpty) log = '\x1B[${style}m$log';
+
+  dev.log(log, name: name);
+}
 
 /// Abstract base class for controllers with lifecycle support.
 abstract class ValentyController {
@@ -108,8 +141,9 @@ class Valenty {
   static S put<S>(S dependency, {String? tag, bool permanent = false}) {
     final String key = _getKey(S, tag);
     if (_instance._dependencies.containsKey(key)) {
-      debugPrint(
-        'Valenty: $key already registered. Returning existing instance.',
+      log(
+        '$key already registered. Returning existing instance.',
+        name: 'Valenty',
       );
       return _instance._dependencies[key] as S;
     }
@@ -124,7 +158,7 @@ class Valenty {
     if (dependency is ValentyController) {
       dependency.onInit();
     }
-    debugPrint('Valenty: Registered $key');
+    log('Registered $key', name: 'Valenty');
     return dependency;
   }
 
@@ -159,7 +193,7 @@ class Valenty {
       if (dependency is ValentyController) {
         dependency.onDispose();
       }
-      debugPrint('Valenty: Deleted $key');
+      log('Deleted $key', name: 'Valenty');
       return true;
     }
     return false;
@@ -498,6 +532,130 @@ class Rx<T> implements RxInterface {
   String toString() => value.toString();
 }
 
+/// A reactive list.
+class RxList<E> extends ListMixin<E> implements RxInterface {
+  final List<E> _list;
+  final Set<RxInterface> _listeners = {};
+
+  RxList([List<E>? initial]) : _list = initial ?? [];
+
+  @override
+  int get length {
+    _registerObserver();
+    return _list.length;
+  }
+
+  @override
+  set length(int newLength) {
+    _list.length = newLength;
+    notify();
+  }
+
+  @override
+  E operator [](int index) {
+    _registerObserver();
+    return _list[index];
+  }
+
+  @override
+  void operator []=(int index, E value) {
+    _list[index] = value;
+    notify();
+  }
+
+  @override
+  void add(E element) {
+    _list.add(element);
+    notify();
+  }
+
+  @override
+  void addAll(Iterable<E> iterable) {
+    _list.addAll(iterable);
+    notify();
+  }
+
+  /// Replaces the list with a new one.
+  set value(List<E> val) {
+    if (_list != val) {
+      _list.clear();
+      _list.addAll(val);
+      notify();
+    }
+  }
+
+  // Note: ListMixin implements other methods using [], length, add, etc.
+  // which generally call accessors/mutators we overrode, but for efficiency
+  // we might want to override more. For now, this covers basic reactivity.
+
+  void _registerObserver() {
+    final observer = _ValentyObserver().observer;
+    if (observer != null) {
+      _listeners.add(observer);
+    }
+  }
+
+  @override
+  void notify() {
+    for (var listener in _listeners) {
+      listener.notify();
+    }
+  }
+}
+
+/// A reactive map.
+class RxMap<K, V> extends MapMixin<K, V> implements RxInterface {
+  final Map<K, V> _map;
+  final Set<RxInterface> _listeners = {};
+
+  RxMap([Map<K, V>? initial]) : _map = initial ?? {};
+
+  @override
+  V? operator [](Object? key) {
+    _registerObserver();
+    return _map[key];
+  }
+
+  @override
+  void operator []=(K key, V value) {
+    _map[key] = value;
+    notify();
+  }
+
+  @override
+  void clear() {
+    _map.clear();
+    notify();
+  }
+
+  @override
+  Iterable<K> get keys {
+    _registerObserver();
+    return _map.keys;
+  }
+
+  @override
+  V? remove(Object? key) {
+    final result = _map.remove(key);
+    notify();
+    return result;
+  }
+
+  void _registerObserver() {
+    final observer = _ValentyObserver().observer;
+    if (observer != null) {
+      _listeners.add(observer);
+    }
+  }
+
+  @override
+  void notify() {
+    for (var listener in _listeners) {
+      listener.notify();
+    }
+  }
+}
+
 /// Extension for easy Rx creation.
 extension RxIntExtension on int {
   Rx<int> get obs => Rx<int>(this);
@@ -513,6 +671,14 @@ extension RxDoubleExtension on double {
 
 extension RxBoolExtension on bool {
   Rx<bool> get obs => Rx<bool>(this);
+}
+
+extension RxListExtension<E> on List<E> {
+  RxList<E> get obs => RxList<E>(this);
+}
+
+extension RxMapExtension<K, V> on Map<K, V> {
+  RxMap<K, V> get obs => RxMap<K, V>(this);
 }
 
 /// The Obx widget which listens to Rx changes.
@@ -569,8 +735,6 @@ class ValentyApp extends StatelessWidget {
   final ThemeMode? themeMode;
   final bool debugShowCheckedModeBanner;
 
-  // Add more properties as needed to match MaterialApp
-
   const ValentyApp({
     super.key,
     this.navigatorKey,
@@ -590,10 +754,7 @@ class ValentyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorObservers: [
-        Valenty.observer,
-        // Add existing logic to allow users to add own observers if we expanded this widget
-      ],
+      navigatorObservers: [Valenty.observer],
       navigatorKey: navigatorKey ?? Valenty().navigatorKey,
       scaffoldMessengerKey:
           scaffoldMessengerKey ?? Valenty().scaffoldMessengerKey,
